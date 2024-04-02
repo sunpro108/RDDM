@@ -428,10 +428,15 @@ class Unet(nn.Module):
 
             x = upsample(x)
 
+        # print('x1:',x)
         x = torch.cat((x, r), dim=1)
 
+        # print('x2:',x)
         x = self.final_res_block(x, t)
-        return self.final_conv(x)
+        # print('x3:',x)
+        x = self.final_conv(x)
+        # print('x4:',x)
+        return x
 
 
 class UnetRes(nn.Module):
@@ -1292,6 +1297,7 @@ class ResidualDiffusion(nn.Module):
                                [self.alphas_cumsum[t]*self.num_timesteps,
                                    self.betas_cumsum[t]*self.num_timesteps],
                                x_self_cond)
+        # print('model out:', model_out) # first element is 0
 
         target = []
         if self.objective == 'pred_res_noise':
@@ -1328,6 +1334,7 @@ class ResidualDiffusion(nn.Module):
         else:
             loss_list = []
             for i in range(len(model_out)):
+                # print('type of target:',type(model_out[i]),type(target[i])) #todo: type of target: <class 'int'> <class 'torch.Tensor'>
                 loss = self.loss_fn(model_out[i], target[i], reduction='none')
                 loss = reduce(loss, 'b ... -> b (...)', 'mean').mean()
                 loss_list.append(loss)
@@ -1383,6 +1390,7 @@ class Trainer(object):
     ):
         super().__init__()
 
+        # todo accelerator on single machine with multi-gpu
         self.accelerator = Accelerator(
             split_batches=split_batches,
             mixed_precision='fp16' if fp16 else 'no'
@@ -1416,7 +1424,7 @@ class Trainer(object):
                 trian_folder = folder[0:2]
 
                 self.sample_dataset = ds
-                self.sample_loader = cycle(self.accelerator.prepare(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=True,
+                self.sample_loader = cycle(self.accelerator.prepare(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=False,
                                                                                pin_memory=True, num_workers=4)))  # cpu_count()
 
                 ds = dataset(trian_folder, self.image_size, augment_flip=augment_flip,
@@ -1431,7 +1439,7 @@ class Trainer(object):
                 trian_folder = folder[0:2]
 
                 self.sample_dataset = ds
-                self.sample_loader = cycle(self.accelerator.prepare(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=True,
+                self.sample_loader = cycle(self.accelerator.prepare(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=False,
                                                                                pin_memory=True, num_workers=4)))  # cpu_count()
 
                 ds = dataset(trian_folder, self.image_size, augment_flip=augment_flip,
@@ -1441,13 +1449,17 @@ class Trainer(object):
             elif len(folder) == 6:
                 self.condition_type = 3
                 # test_gt+test_input
+                # print('===define sample loader ==='*3)
                 ds = dataset(folder[3:6], self.image_size,
                              augment_flip=False, convert_image_to=convert_image_to, condition=2, equalizeHist=equalizeHist, crop_patch=crop_patch, sample=True, generation=generation)
                 trian_folder = folder[0:3]
 
                 self.sample_dataset = ds
-                self.sample_loader = cycle(self.accelerator.prepare(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=True,
+                # print('===define sample loader ==='*3)
+                self.sample_loader = cycle(self.accelerator.prepare_data_loader(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=False,
                                                                                pin_memory=True, num_workers=4)))  # cpu_count()
+                # print(next(self.sample_loader))
+
 
                 ds = dataset(trian_folder, self.image_size, augment_flip=augment_flip,
                              convert_image_to=convert_image_to, condition=2, equalizeHist=equalizeHist, crop_patch=crop_patch, generation=generation)
@@ -1540,7 +1552,7 @@ class Trainer(object):
             if exists(self.accelerator.scaler) and exists(data['scaler']):
                 self.accelerator.scaler.load_state_dict(data['scaler'])
 
-            print("load model - "+str(path))
+            # print("load model - "+str(path))
 
         # self.ema.to(self.device)
 

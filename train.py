@@ -7,10 +7,10 @@ from src.residual_denoising_diffusion_pytorch import (ResidualDiffusion,
                                                       set_seed)
 
 # init
-os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(e) for e in [0])
+os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(e) for e in [0,1,2,3])
 sys.stdout.flush()
 set_seed(10)
-debug = False
+debug = True
 
 if debug:
     save_and_sample_every = 2
@@ -32,25 +32,25 @@ if original_ddim_ddpm:
     input_condition = False
     input_condition_mask = False
 else:
-    condition = False
-    input_condition = False
-    input_condition_mask = False
+    condition = True
+    input_condition = True
+    input_condition_mask = True
 
 if condition:
     # Image restoration  
     if input_condition:
-        folder = ["xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_free_train.flist",
-                  "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_train.flist",
-                  "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_mask_train.flist",
-                  "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_free_test.flist",
-                  "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_test.flist",
-                  "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_mask_test.flist"]
+        folder = ["home_datasets/ISTD_Dataset/train/train_C",
+                  "home_datasets/ISTD_Dataset/train/train_A",
+                  "home_datasets/ISTD_Dataset/train/train_B",
+                  "home_datasets/ISTD_Dataset/test/test_C",
+                  "home_datasets/ISTD_Dataset/test/test_A",
+                  "home_datasets/ISTD_Dataset/test/test_B"]
     else:
         folder = ["xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_free_train.flist",
                   "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_train.flist",
                   "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_free_test.flist",
                   "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_test.flist"]
-    train_batch_size = 1
+    train_batch_size = 4
     num_samples = 1
     sum_scale = 0.01
     image_size = 256
@@ -64,7 +64,7 @@ else:
 
 num_unet = 2
 objective = 'pred_res_noise'
-test_res_or_noise = "noise"
+test_res_or_noise = "res_noise"
 if original_ddim_ddpm:
     model = Unet(
         dim=64,

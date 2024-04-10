@@ -51,7 +51,7 @@ if condition:
                   "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_free_test.flist",
                   "xxx/dataset/ISTD_Dataset_arg/data_val/ISTD_shadow_test.flist"]
     train_batch_size = 4
-    num_samples = 1
+    num_samples = 4
     sum_scale = 0.01
     image_size = 256
 else:

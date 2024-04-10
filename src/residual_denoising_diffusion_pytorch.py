@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from accelerate import Accelerator
+from accelerate import DataLoaderConfiguaration
 from datasets.get_dataset import dataset
 from einops import rearrange, reduce
 from einops.layers.torch import Rearrange
@@ -1617,7 +1618,7 @@ class Trainer(object):
                             self.set_results_folder(gen_img)
                             self.test(last=True, FID=True)
                             os.system(
-                                "python fid_and_inception_score.py "+gen_img)
+                                "python fid_and_inception_score.py "+gen_img) # todo: evaluation methods!
                             self.set_results_folder(results_folder)
                 if self.num_unet == 1:
                     pbar.set_description(f'loss_unet0: {total_loss[0]:.4f}')

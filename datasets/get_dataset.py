@@ -1,6 +1,7 @@
 import argparse
 
 from datasets.base import Dataset
+from datasets.iharmony4_dataset import IHarmony4Dataset
 from datasets.generation import get_dataset
 
 
@@ -24,15 +25,21 @@ def dataset(folder,
             equalizeHist=False,
             crop_patch=True,
             sample=False, 
-            generation=False):
-    if generation:
-        # dataset_import = "generation"
-        # dataset = "CELEBA"
-        # args = {"exp": "xxx/dataset/diffusion_dataset"}
+            generation=False,
+            harmonization=False,
+            is_for_train=None,
+        ):
+    if not harmonization:
+        if generation:
+            # dataset_import = "generation"
+            # dataset = "CELEBA"
+            # args = {"exp": "xxx/dataset/diffusion_dataset"}
 
-        dataset_import = "base"
+            dataset_import = "base"
+        else:
+            dataset_import = "base"
     else:
-        dataset_import = "base"
+        dataset_import = "harmonization"
 
     if dataset_import == "base":
         return Dataset(folder,
@@ -98,3 +105,6 @@ def dataset(folder,
         args = dict2namespace(args)
         config = dict2namespace(config)
         return get_dataset(args, config)[0]
+
+    elif dataset_import == "harmonization":
+        return IHarmony4Dataset(folder, is_for_train=is_for_train,image_size=image_size)

@@ -10,7 +10,7 @@ from src.residual_denoising_diffusion_pytorch import (ResidualDiffusion,
 os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(e) for e in [0,1,2,3])
 sys.stdout.flush()
 set_seed(10)
-debug = True
+debug = False
 
 if debug:
     save_and_sample_every = 2
@@ -24,7 +24,7 @@ else:
     else:
         sampling_timesteps = 10
     sampling_timesteps_original_ddim_ddpm = 250
-    train_num_steps = 100000
+    train_num_steps = 1000
 
 original_ddim_ddpm = False
 if original_ddim_ddpm:
@@ -35,11 +35,15 @@ else:
     condition = True
     input_condition = True
     input_condition_mask = True
+    harmonization = True
 
 if condition:
     # Image restoration  
     if input_condition:
-        folder = ["home_datasets/ISTD_Dataset/train/train_C",
+        if harmonization: # image harmonization
+            folder = ["home_datasets/iharmony4/HAdobe5k"]
+        else: # ISTD image restoration
+            folder = ["home_datasets/ISTD_Dataset/train/train_C",
                   "home_datasets/ISTD_Dataset/train/train_A",
                   "home_datasets/ISTD_Dataset/train/train_B",
                   "home_datasets/ISTD_Dataset/test/test_C",

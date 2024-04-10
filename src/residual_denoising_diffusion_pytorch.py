@@ -15,7 +15,6 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from accelerate import Accelerator
-from accelerate import DataLoaderConfiguaration
 from datasets.get_dataset import dataset
 from einops import rearrange, reduce
 from einops.layers.torch import Rearrange
@@ -1451,9 +1450,10 @@ class Trainer(object):
                 self.condition_type = 3
                 # test_gt+test_input
                 # print('===define sample loader ==='*3)
-                ds = dataset(folder[3:6], self.image_size,
+                # test dataset
+                test_folder = folder[3:6]
+                ds = dataset(test_folder, self.image_size,
                              augment_flip=False, convert_image_to=convert_image_to, condition=2, equalizeHist=equalizeHist, crop_patch=crop_patch, sample=True, generation=generation)
-                trian_folder = folder[0:3]
 
                 self.sample_dataset = ds
                 # print('===define sample loader ==='*3)
@@ -1461,11 +1461,58 @@ class Trainer(object):
                                                                                pin_memory=True, num_workers=4)))  # cpu_count()
                 # print(next(self.sample_loader))
 
-
+                # train dataset
+                trian_folder = folder[0:3]
                 ds = dataset(trian_folder, self.image_size, augment_flip=augment_flip,
                              convert_image_to=convert_image_to, condition=2, equalizeHist=equalizeHist, crop_patch=crop_patch, generation=generation)
                 self.dl = cycle(self.accelerator.prepare(DataLoader(ds, batch_size=train_batch_size,
                                 shuffle=True, pin_memory=True, num_workers=4)))
+            
+            elif len(folder) == 1: # for image harmonization
+                self.condition_type = 3
+                # test_gt+test_input
+                # test dataset
+                data_folder = folder[0]
+                is_for_train = False
+                ds = dataset(
+                    data_folder,
+                    self.image_size,
+                    augment_flip=False,
+                    convert_image_to=convert_image_to,
+                    condition=2,
+                    equalizeHist=equalizeHist,
+                    crop_patch=crop_patch,
+                    sample=True,
+                    generation=generation,
+                    harmonization=True,
+                    is_for_train=is_for_train,
+                )
+
+                self.sample_dataset = ds
+                # print('===define sample loader ==='*3)
+                self.sample_loader = cycle(self.accelerator.prepare_data_loader(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=False,
+                                                                               pin_memory=True, num_workers=4)))  # cpu_count()
+                # train dataset
+                is_for_train = True
+                ds = dataset(
+                    data_folder,
+                    self.image_size,
+                    augment_flip=False,
+                    convert_image_to=convert_image_to,
+                    condition=2,
+                    equalizeHist=equalizeHist,
+                    crop_patch=crop_patch,
+                    sample=True,
+                    generation=generation,
+                    harmonization=True,
+                    is_for_train=is_for_train,
+                )
+                self.dl = cycle(self.accelerator.prepare(DataLoader(ds, batch_size=train_batch_size,
+                                shuffle=True, pin_memory=True, num_workers=4)))
+
+
+
+
         else:
             self.condition_type = 0
             trian_folder = folder

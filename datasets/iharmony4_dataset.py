@@ -1,4 +1,7 @@
+import os
 from pathlib import Path
+import cv2
+import numpy as np
 from PIL import Image
 import torch.utils.data as data
 from torchvision import transforms
@@ -23,11 +26,7 @@ class IHarmony4Dataset(data.Dataset):
         self.is_train = is_for_train
         self.train_file = None
         self._load_images_paths()
-        self.transform_rgb = transforms.Compose([
-            transforms.Resize((image_size, image_size)),
-            transforms.ToTensor()
-        ])
-        self.transform_mask = transforms.Compose([
+        self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
             transforms.ToTensor() 
         ]) 
@@ -57,11 +56,12 @@ class IHarmony4Dataset(data.Dataset):
         real = Image.open(self.gt_paths[index]).convert("RGB")
         mask = Image.open(self.mask_paths[index]).convert("RGB")
 
-        comp = self.transform_rgb(comp)
-        real = self.transform_rgb(real)
-        mask = self.transform_mask(mask)
+        comp = self.transform(comp)
+        real = self.transform(real)
+        mask = self.transform(mask)
         comp = self._compose(comp, mask, real)
-        return [ real, comp, mask] # gt, input, input_condition
+
+        return [real, comp, mask] # gt, input, input_condition
 
     def __len__(self):
         """Return the total number of images."""
@@ -75,3 +75,27 @@ class IHarmony4Dataset(data.Dataset):
         dataset_name = _names[-3]
         file_name = _names[-1].split('.')[0]
         return f"{dataset_name}/{file_name}"
+
+    def load_name(self, index, sub_dir=False):
+        # condition
+        name = self.image_paths[index]
+        return os.path.basename(name)
+
+    def get_pad_size(self, index, block_size=8):
+        img = Image.open(self.image_paths[index])
+        patch_size = self.image_size
+        img = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
+        h, w = img.shape[:2]
+        bottom = 0
+        right = 0
+        if h < patch_size:
+            bottom = patch_size-h
+            h = patch_size
+        if w < patch_size:
+            right = patch_size-w
+            w = patch_size
+        bottom = bottom + (h // block_size) * block_size + \
+            (block_size if h % block_size != 0 else 0) - h
+        right = right + (w // block_size) * block_size + \
+            (block_size if w % block_size != 0 else 0) - w
+        return [bottom, right]

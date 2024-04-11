@@ -37,15 +37,15 @@ class Dataset(Dataset):
         self.sample = sample
         if condition == 1:
             # condition
-            self.gt = self.load_flist(folder[0])
-            self.input = self.load_flist(folder[1])
+            self.gt = self._load_flist(folder[0])
+            self.input = self._load_flist(folder[1])
         elif condition == 0:
             # generation
-            self.paths = self.load_flist(folder)
+            self.paths = self._load_flist(folder)
         elif condition == 2:
-            self.gt = self.load_flist(folder[0])
-            self.input = self.load_flist(folder[1])
-            self.input_condition = self.load_flist(folder[2])
+            self.gt = self._load_flist(folder[0])
+            self.input = self._load_flist(folder[1])
+            self.input_condition = self._load_flist(folder[2])
 
         self.image_size = image_size
         self.convert_image_to = convert_image_to
@@ -67,12 +67,12 @@ class Dataset(Dataset):
             img1 = convert_image_to_fn(
                 self.convert_image_to, img1) if self.convert_image_to else img1
 
-            img0, img1 = self.pad_img([img0, img1], self.image_size)
+            img0, img1 = self._pad_img([img0, img1], self.image_size)
 
             if self.crop_patch and not self.sample:
-                img0, img1 = self.get_patch([img0, img1], self.image_size)
+                img0, img1 = self._get_patch([img0, img1], self.image_size)
 
-            img1 = self.cv2equalizeHist(img1) if self.equalizeHist else img1
+            img1 = self._cv2equalizeHist(img1) if self.equalizeHist else img1
 
             images = [[img0, img1]]
             p = Augmentor.DataPipeline(images)
@@ -85,7 +85,7 @@ class Dataset(Dataset):
             img0 = cv2.cvtColor(augmented_images[0][0], cv2.COLOR_BGR2RGB)
             img1 = cv2.cvtColor(augmented_images[0][1], cv2.COLOR_BGR2RGB)
 
-            return [self.to_tensor(img0), self.to_tensor(img1)]
+            return [self._to_tensor(img0), self._to_tensor(img1)]
         elif self.condition == 0:
             # generation
             path = self.paths[index]
@@ -93,12 +93,12 @@ class Dataset(Dataset):
             img = convert_image_to_fn(
                 self.convert_image_to, img) if self.convert_image_to else img
 
-            img = self.pad_img([img], self.image_size)[0]
+            img = self._pad_img([img], self.image_size)[0]
 
             if self.crop_patch and not self.sample:
-                img = self.get_patch([img], self.image_size)[0]
+                img = self._get_patch([img], self.image_size)[0]
 
-            img = self.cv2equalizeHist(img) if self.equalizeHist else img
+            img = self._cv2equalizeHist(img) if self.equalizeHist else img
 
             images = [[img]]
             p = Augmentor.DataPipeline(images)
@@ -110,7 +110,7 @@ class Dataset(Dataset):
             augmented_images = next(g)
             img = cv2.cvtColor(augmented_images[0][0], cv2.COLOR_BGR2RGB)
 
-            return self.to_tensor(img)
+            return self._to_tensor(img)
         elif self.condition == 2:
             # condition
             img0 = Image.open(self.gt[index])
@@ -123,14 +123,14 @@ class Dataset(Dataset):
             img2 = convert_image_to_fn(
                 self.convert_image_to, img2) if self.convert_image_to else img2
 
-            img0, img1, img2 = self.pad_img(
+            img0, img1, img2 = self._pad_img(
                 [img0, img1, img2], self.image_size)
 
             if self.crop_patch and not self.sample:
-                img0, img1, img2 = self.get_patch(
+                img0, img1, img2 = self._get_patch(
                     [img0, img1, img2], self.image_size)
 
-            img1 = self.cv2equalizeHist(img1) if self.equalizeHist else img1
+            img1 = self._cv2equalizeHist(img1) if self.equalizeHist else img1
 
             images = [[img0, img1, img2]]
             p = Augmentor.DataPipeline(images)
@@ -144,9 +144,9 @@ class Dataset(Dataset):
             img1 = cv2.cvtColor(augmented_images[0][1], cv2.COLOR_BGR2RGB)
             img2 = cv2.cvtColor(augmented_images[0][2], cv2.COLOR_BGR2RGB)
 
-            return [self.to_tensor(img0), self.to_tensor(img1), self.to_tensor(img2)]
+            return [self._to_tensor(img0), self._to_tensor(img1), self._to_tensor(img2)]
 
-    def load_flist(self, flist):
+    def _load_flist(self, flist):
         if isinstance(flist, list):
             return flist
 
@@ -163,7 +163,7 @@ class Dataset(Dataset):
 
         return []
 
-    def cv2equalizeHist(self, img):
+    def _cv2equalizeHist(self, img):
         (b, g, r) = cv2.split(img)
         b = cv2.equalizeHist(b)
         g = cv2.equalizeHist(g)
@@ -171,23 +171,12 @@ class Dataset(Dataset):
         img = cv2.merge((b, g, r))
         return img
 
-    def to_tensor(self, img):
+    def _to_tensor(self, img):
         img = Image.fromarray(img)  # returns an image object.
         img_t = TF.to_tensor(img).float()
         return img_t
 
-    def load_name(self, index, sub_dir=False):
-        if self.condition:
-            # condition
-            name = self.input[index]
-            if sub_dir == 0:
-                return os.path.basename(name)
-            elif sub_dir == 1:
-                path = os.path.dirname(name)
-                sub_dir = (path.split("/"))[-1]
-                return sub_dir+"_"+os.path.basename(name)
-
-    def get_patch(self, image_list, patch_size):
+    def _get_patch(self, image_list, patch_size):
         i = 0
         h, w = image_list[0].shape[:2]
         rr = random.randint(0, h-patch_size)
@@ -197,7 +186,7 @@ class Dataset(Dataset):
             i += 1
         return image_list
 
-    def pad_img(self, img_list, patch_size, block_size=8):
+    def _pad_img(self, img_list, patch_size, block_size=8):
         i = 0
         for img in img_list:
             img = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
@@ -218,6 +207,17 @@ class Dataset(Dataset):
                 img, 0, bottom, 0, right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
             i += 1
         return img_list
+
+    def load_name(self, index, sub_dir=False):
+        if self.condition:
+            # condition
+            name = self.input[index]
+            if sub_dir == 0:
+                return os.path.basename(name)
+            elif sub_dir == 1:
+                path = os.path.dirname(name)
+                sub_dir = (path.split("/"))[-1]
+                return sub_dir+"_"+os.path.basename(name)
 
     def get_pad_size(self, index, block_size=8):
         img = Image.open(self.input[index])

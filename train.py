@@ -10,13 +10,13 @@ from src.residual_denoising_diffusion_pytorch import (ResidualDiffusion,
 os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(e) for e in [0,1,2,3])
 sys.stdout.flush()
 set_seed(10)
-debug = False
+debug = True
 
 if debug:
     save_and_sample_every = 2
     sampling_timesteps = 10
     sampling_timesteps_original_ddim_ddpm = 10
-    train_num_steps = 200
+    train_num_steps = 50
 else:
     save_and_sample_every = 1000
     if len(sys.argv) > 1:

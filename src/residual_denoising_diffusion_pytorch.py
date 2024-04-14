@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from accelerate import Accelerator
-from accelerate import DataLoaderConfiguaration
+from accelerate import DataLoaderConfiguration
 from datasets.get_dataset import dataset
 from einops import rearrange, reduce
 from einops.layers.torch import Rearrange
@@ -1392,8 +1392,9 @@ class Trainer(object):
         super().__init__()
 
         # todo accelerator on single machine with multi-gpu
+        dataloader_config = DataLoaderConfiguration(split_batches=split_batches)
         self.accelerator = Accelerator(
-            split_batches=split_batches,
+            dataloader_config = dataloader_config,
             mixed_precision='fp16' if fp16 else 'no'
         )
         self.sub_dir = sub_dir
@@ -1422,12 +1423,12 @@ class Trainer(object):
                 # test_input
                 ds = dataset(folder[-1], self.image_size,
                              augment_flip=False, convert_image_to=convert_image_to, condition=0, equalizeHist=equalizeHist, crop_patch=crop_patch, sample=True, generation=generation)
-                trian_folder = folder[0:2]
 
                 self.sample_dataset = ds
                 self.sample_loader = cycle(self.accelerator.prepare(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=False,
                                                                                pin_memory=True, num_workers=4)))  # cpu_count()
 
+                trian_folder = folder[0:2]
                 ds = dataset(trian_folder, self.image_size, augment_flip=augment_flip,
                              convert_image_to=convert_image_to, condition=1, equalizeHist=equalizeHist, crop_patch=crop_patch, generation=generation)
                 self.dl = cycle(self.accelerator.prepare(DataLoader(ds, batch_size=train_batch_size,
@@ -1618,7 +1619,7 @@ class Trainer(object):
                             self.set_results_folder(gen_img)
                             self.test(last=True, FID=True)
                             os.system(
-                                "python fid_and_inception_score.py "+gen_img) # todo: evaluation methods!
+                                "python fid_and_inception_score.py "+gen_img) # [x]: evaluation methods!
                             self.set_results_folder(results_folder)
                 if self.num_unet == 1:
                     pbar.set_description(f'loss_unet0: {total_loss[0]:.4f}')

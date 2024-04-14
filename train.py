@@ -24,7 +24,7 @@ else:
     else:
         sampling_timesteps = 10
     sampling_timesteps_original_ddim_ddpm = 250
-    train_num_steps = 100000
+    train_num_steps = 100,000
 
 original_ddim_ddpm = False
 if original_ddim_ddpm:

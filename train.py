@@ -10,10 +10,10 @@ from src.residual_denoising_diffusion_pytorch import (ResidualDiffusion,
 
 sys.stdout.flush()
 set_seed(10)
-debug = False
+debug = True
 
 if debug:
-    save_and_sample_every = 2
+    save_and_sample_every = 1
     sampling_timesteps = 2
     sampling_timesteps_original_ddim_ddpm = 10
     train_num_steps = 100
@@ -107,10 +107,11 @@ trainer = Trainer(
     folder,
     train_batch_size=train_batch_size,
     num_samples=num_samples,
+    results_folder='./results_debug_on_istd_2/sample',
     train_lr=2e-4,
     train_num_steps=train_num_steps,         # total training steps
-    gradient_accumulate_every=2,    # gradient accumulation steps
-    ema_decay=0.995,                # exponential moving average decay
+    gradient_accumulate_every=2,     # gradient accumulation steps
+    ema_decay=0.995,                 # exponential moving average decay
     amp=False,                        # turn on mixed precision
     convert_image_to="RGB",
     condition=condition,
@@ -121,17 +122,20 @@ trainer = Trainer(
     num_unet=num_unet,
 )
 
+# trainer.set_results_folder('results/sample')
+# trainer.load(10)
+
 # train
 trainer.train()
 
 # test
-if not trainer.accelerator.is_local_main_process:
-    pass
-else:
-    trainer.load(trainer.train_num_steps//save_and_sample_every)
-    trainer.set_results_folder(
-        './results/test_timestep_'+str(sampling_timesteps))
-    trainer.test(last=True)
+# if not trainer.accelerator.is_local_main_process:
+#     pass
+# else:
+#     trainer.load(trainer.train_num_steps//save_and_sample_every)
+#     trainer.set_results_folder(
+#         './results/test_timestep_'+str(sampling_timesteps))
+#     trainer.test(last=True)
 
 # trainer.set_results_folder('./results/test_sample')
 # trainer.test(sample=True)

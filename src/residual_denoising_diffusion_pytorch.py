@@ -1403,6 +1403,7 @@ class Trainer(object):
         self.accelerator.native_amp = amp
 
         self.model = diffusion_model
+        self.sample_step = self.model.num_timesteps
 
         assert has_int_squareroot(
             num_samples), 'number of samples must have an integer square root'
@@ -1426,13 +1427,13 @@ class Trainer(object):
 
                 self.sample_dataset = ds
                 self.sample_loader = cycle(self.accelerator.prepare(DataLoader(self.sample_dataset, batch_size=num_samples, shuffle=False,
-                                                                               pin_memory=True, num_workers=4)))  # cpu_count()
+                                                                               pin_memory=True, num_workers=0)))  # cpu_count()
 
                 trian_folder = folder[0:2]
                 ds = dataset(trian_folder, self.image_size, augment_flip=augment_flip,
                              convert_image_to=convert_image_to, condition=1, equalizeHist=equalizeHist, crop_patch=crop_patch, generation=generation)
                 self.dl = cycle(self.accelerator.prepare(DataLoader(ds, batch_size=train_batch_size,
-                                shuffle=True, pin_memory=True, num_workers=4)))
+                                shuffle=True, pin_memory=True, num_workers=0)))
             elif len(folder) == 4:
                 self.condition_type = 2
                 # test_gt+test_input
@@ -1496,6 +1497,7 @@ class Trainer(object):
                            update_every=ema_update_every)
 
             self.set_results_folder(results_folder)
+            print('set results folder:', self.results_folder)
 
         # step counter state
 
@@ -1512,6 +1514,8 @@ class Trainer(object):
         self.device = device
 
     def save(self, milestone):
+        """ save model parameters
+        """
         if not self.accelerator.is_local_main_process:
             return
         if self.num_unet == 1:
@@ -1534,6 +1538,11 @@ class Trainer(object):
         torch.save(data, str(self.results_folder / f'model-{milestone}.pt'))
 
     def load(self, milestone):
+        """load parameters
+        """
+        if not self.accelerator.is_local_main_process:
+            return
+
         path = Path(self.results_folder / f'model-{milestone}.pt')
 
         if path.exists():
@@ -1554,7 +1563,7 @@ class Trainer(object):
             if exists(self.accelerator.scaler) and exists(data['scaler']):
                 self.accelerator.scaler.load_state_dict(data['scaler'])
 
-            # print("load model - "+str(path))
+            print("load model - "+str(path))
 
         # self.ema.to(self.device)
 
@@ -1614,12 +1623,11 @@ class Trainer(object):
                         if self.step != 0 and self.step % (self.save_and_sample_every*10) == 0:
                             self.save(milestone)
                             results_folder = self.results_folder
-                            gen_img = './results/test_timestep_10_' + \
-                                str(milestone)+"_pt"
+                            gen_img = results_folder.parent / f'test_timestep_10_{milestone}_pt'
                             self.set_results_folder(gen_img)
                             self.test(last=True, FID=True)
-                            os.system(
-                                "python fid_and_inception_score.py "+gen_img) # [x]: evaluation methods!
+                            # os.system(
+                            #     "python fid_and_inception_score.py "+gen_img) # [x]: evaluation methods!
                             self.set_results_folder(results_folder)
                 if self.num_unet == 1:
                     pbar.set_description(f'loss_unet0: {total_loss[0]:.4f}')
@@ -1656,12 +1664,13 @@ class Trainer(object):
 
             all_images_list = show_x_input_sample + \
                 list(self.ema.ema_model.sample(
-                    x_input_sample, batch_size=batches, last=last))
+                    x_input_sample, batch_size=batches, last=last))[::-1] # first results then input_with_noise
 
             all_images = torch.cat(all_images_list, dim=0)
 
             if last:
-                nrow = int(math.sqrt(self.num_samples))
+                # nrow = int(math.sqrt(self.num_samples))
+                nrow = 3 # images number in a row
             else:
                 nrow = all_images.shape[0]
 
@@ -1718,13 +1727,15 @@ class Trainer(object):
                         show_x_input_sample = x_input_sample
                         x_input_sample = x_input_sample[1:]
 
-                    if sample:
+                    if sample: # save image just like train sample 
                         all_images_list = show_x_input_sample + \
                             list(self.ema.ema_model.sample(
                                 x_input_sample, batch_size=batches))
-                    else:
-                        all_images_list = list(self.ema.ema_model.sample(
-                            x_input_sample, batch_size=batches, last=last))
+                    else: # output the single image
+                        all_images_list = list(
+                            self.ema.ema_model.sample(
+                                x_input_sample, batch_size=batches, last=last)
+                        )
                         all_images_list = [all_images_list[-1]]
                         if self.crop_patch:
                             k = 0
@@ -1743,6 +1754,7 @@ class Trainer(object):
                 else:
                     nrow = all_images.shape[0]
 
+                print(all_images.shape, nrow)
                 utils.save_image(all_images, str(
                     self.results_folder / file_name), nrow=nrow)
                 print("test-save "+file_name)
@@ -1762,5 +1774,6 @@ class Trainer(object):
 
     def set_results_folder(self, path):
         self.results_folder = Path(path)
-        if not self.results_folder.exists():
-            os.makedirs(self.results_folder)
+        self.results_folder.mkdir(parents=True, exist_ok=True)
+        # if not self.results_folder.exists():
+            # os.makedirs(self.results_folder)

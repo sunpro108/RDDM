@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
+from pytorch_wavelets import DWTForward, DWTInverse
 from accelerate import Accelerator
 from datasets.get_dataset import dataset
 from einops import rearrange, reduce
@@ -1106,7 +1107,6 @@ class ResidualDiffusion(nn.Module):
             if not last:
                 img_list.append(img)
 
-
         if self.condition:
             if not last:
                 img_list = [input_add_noise]+img_list
@@ -1120,111 +1120,10 @@ class ResidualDiffusion(nn.Module):
                 img_list = [img]
             return unnormalize_to_zero_to_one(img_list)
 
-    # @torch.no_grad()
-    # def ddim_sample(self, x_input, shape, last=True):
-    #     if self.input_condition:
-    #         x_input_condition = x_input[1]
-    #     else:
-    #         x_input_condition = 0
-    #     x_input = x_input[0]
-
-    #     batch, device, total_timesteps, sampling_timesteps, eta, objective = shape[
-    #         0], self.betas.device, self.num_timesteps, self.sampling_timesteps, self.ddim_sampling_eta, self.objective
-
-    #     # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps
-    #     times = torch.linspace(-1, total_timesteps - 1,
-    #                            steps=sampling_timesteps + 1)
-    #     times = list(reversed(times.int().tolist()))
-    #     # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
-    #     time_pairs = list(zip(times[:-1], times[1:]))
-
-    #     if self.condition:
-    #         img = x_input+math.sqrt(self.sum_scale) * \
-    #             torch.randn(shape, device=device)
-    #         input_add_noise = img
-    #     else:
-    #         img = torch.randn(shape, device=device)
-
-    #     x_start = None
-    #     type = "use_pred_noise"
-
-    #     if not last:
-    #         img_list = []
-
-    #     eta = 0
-
-    #     for time, time_next in tqdm(time_pairs, desc='sampling loop time step'):
-    #         time_cond = torch.full(
-    #             (batch,), time, device=device, dtype=torch.long)
-    #         self_cond = x_start if self.self_condition else None
-    #         preds = self.model_predictions(
-    #             x_input, img, time_cond, x_input_condition, self_cond)
-
-    #         pred_res = preds.pred_res
-    #         pred_noise = preds.pred_noise
-    #         x_start = preds.pred_x_start
-
-    #         if time_next < 0:
-    #             img = x_start
-    #             if not last:
-    #                 img_list.append(img)
-    #             continue
-
-    #         alpha_cumsum = self.alphas_cumsum[time]
-    #         alpha_cumsum_next = self.alphas_cumsum[time_next]
-    #         alpha = alpha_cumsum-alpha_cumsum_next
-
-    #         betas2_cumsum = self.betas2_cumsum[time]
-    #         betas2_cumsum_next = self.betas2_cumsum[time_next]
-    #         betas2 = betas2_cumsum-betas2_cumsum_next
-    #         # betas2 = 1-(1-betas2_cumsum)/(1-betas2_cumsum_next)
-    #         betas = betas2.sqrt()
-    #         betas_cumsum = self.betas_cumsum[time]
-    #         betas_cumsum_next = self.betas_cumsum[time_next]
-    #         sigma2 = eta * (betas2*betas2_cumsum_next/betas2_cumsum)
-    #         sqrt_betas2_cumsum_next_minus_sigma2_divided_betas_cumsum = (
-    #             betas2_cumsum_next-sigma2).sqrt()/betas_cumsum
-
-    #         if eta == 0:
-    #             noise = 0
-    #         else:
-    #             noise = torch.randn_like(img)
-
-    #         if type == "use_pred_noise":
-    #             img = img - alpha*pred_res - \
-    #                 (betas_cumsum-(betas2_cumsum_next-sigma2).sqrt()) * \
-    #                 pred_noise + sigma2.sqrt()*noise
-    #         elif type == "use_x_start":
-    #             img = sqrt_betas2_cumsum_next_minus_sigma2_divided_betas_cumsum*img + \
-    #                 (1-sqrt_betas2_cumsum_next_minus_sigma2_divided_betas_cumsum)*x_start + \
-    #                 (alpha_cumsum_next-alpha_cumsum*sqrt_betas2_cumsum_next_minus_sigma2_divided_betas_cumsum)*pred_res + \
-    #                 sigma2.sqrt()*noise
-    #         elif type == "special_eta_0":
-    #             img = img - alpha*pred_res - \
-    #                 (betas_cumsum-betas_cumsum_next)*pred_noise
-    #         elif type == "special_eta_1":
-    #             img = img - alpha*pred_res - betas2/betas_cumsum*pred_noise + \
-    #                 betas*betas2_cumsum_next.sqrt()/betas_cumsum*noise
-
-    #         if not last:
-    #             img_list.append(img)
-
-    #     if self.condition:
-    #         if not last:
-    #             img_list = [input_add_noise]+img_list
-    #         else:
-    #             img_list = [input_add_noise, img]
-    #         return unnormalize_to_zero_to_one(img_list)
-    #     else:
-    #         if not last:
-    #             img_list = img_list
-    #         else:
-    #             img_list = [img]
-    #         return unnormalize_to_zero_to_one(img_list)
-
     @torch.no_grad()
     def sample(self, x_input=0, batch_size=16, last=True):
         image_size, channels = self.image_size, self.channels
+        # print('isddim sampling:',self.is_ddim_sampling)
         sample_fn = self.p_sample_loop if not self.is_ddim_sampling else self.ddim_sample
         if self.condition:
             if self.input_condition and self.input_condition_mask:
@@ -1239,7 +1138,6 @@ class ResidualDiffusion(nn.Module):
 
     def q_sample(self, x_start, x_res, t, noise=None):
         noise = default(noise, lambda: torch.randn_like(x_start))
-
         return (
             x_start+extract(self.alphas_cumsum, t, x_start.shape) * x_res +
             extract(self.betas_cumsum, t, x_start.shape) * noise
@@ -1386,7 +1284,9 @@ class Trainer(object):
         equalizeHist=False,
         crop_patch=False,
         generation=False,
-        num_unet=2
+        num_unet=2,
+        dwt_level=0,
+        debug=False,
     ):
         super().__init__()
 
@@ -1414,6 +1314,8 @@ class Trainer(object):
         self.image_size = diffusion_model.image_size
         self.condition = condition
         self.num_unet = num_unet
+        self.dwt_level = dwt_level
+        self.debug=debug
 
         if self.condition:
             if len(folder) == 3:
@@ -1467,7 +1369,6 @@ class Trainer(object):
                              convert_image_to=convert_image_to, condition=2, equalizeHist=equalizeHist, crop_patch=crop_patch, generation=generation)
                 self.dl = cycle(self.accelerator.prepare(DataLoader(ds, batch_size=train_batch_size,
                                 shuffle=True, pin_memory=True, num_workers=4)))
-            
             elif len(folder) == 1: # for image harmonization
                 self.condition_type = 3
                 # test_gt+test_input
@@ -1486,6 +1387,7 @@ class Trainer(object):
                     generation=generation,
                     harmonization=True,
                     is_for_train=is_for_train,
+                    debug=self.debug
                 )
 
                 self.sample_dataset = ds
@@ -1506,11 +1408,15 @@ class Trainer(object):
                     generation=generation,
                     harmonization=True,
                     is_for_train=is_for_train,
+                    debug=self.debug
                 )
                 self.dl = cycle(self.accelerator.prepare(DataLoader(ds, batch_size=train_batch_size,
                                 shuffle=True, pin_memory=True, num_workers=4)))
-
-
+                
+                # dwt
+                self.dwt = DWTForward(J=dwt_level, wave='db1', mode='zero')
+                self.idwt = DWTInverse(wave='db1', mode='zero')
+                self.dwt, self.idwt = self.accelerator.prepare(self.dwt, self.idwt)
 
 
         else:
@@ -1619,6 +1525,12 @@ class Trainer(object):
                     if self.condition:
                         data = next(self.dl)
                         data = [item.to(self.device) for item in data]
+                        # todo: add dwt
+                        # use dwt for gt & comp,
+                        # use resize for mask
+                        _mask = data[2][:,:,::2**self.dwt_level,::2**self.dwt_level]
+                        data = list(list(zip(*[self.dwt(item) for item in data[:2]]))[0])
+                        data.append(_mask)
                     else:
                         data = next(self.dl)
                         data = data[0] if isinstance(data, list) else data
@@ -1655,6 +1567,7 @@ class Trainer(object):
 
                     if self.step != 0 and self.step % self.save_and_sample_every == 0:
                         milestone = self.step // self.save_and_sample_every
+                        # todo
                         self.sample(milestone)
 
                         if self.step != 0 and self.step % (self.save_and_sample_every*10) == 0:
@@ -1664,8 +1577,8 @@ class Trainer(object):
                                 str(milestone)+"_pt"
                             self.set_results_folder(gen_img)
                             self.test(last=True, FID=True)
-                            os.system(
-                                "python fid_and_inception_score.py "+gen_img) # todo: evaluation methods!
+                            # os.system(
+                            #     "python fid_and_inception_score.py "+gen_img) # todo: evaluation methods!
                             self.set_results_folder(results_folder)
                 if self.num_unet == 1:
                     pbar.set_description(f'loss_unet0: {total_loss[0]:.4f}')
@@ -1693,19 +1606,28 @@ class Trainer(object):
                                   for item in x_input_sample]
                 show_x_input_sample = x_input_sample
                 x_input_sample = x_input_sample[1:]
-            elif self.condition_type == 3:
+            elif self.condition_type == 3: # for condition & harmonization
                 x_input_sample = next(self.sample_loader)
                 x_input_sample = [item.to(self.device)
                                   for item in x_input_sample]
                 show_x_input_sample = x_input_sample
+                ## todo
+                xrl, xrh = self.dwt(show_x_input_sample[0])
                 x_input_sample = x_input_sample[1:]
+                xcl, xch = self.dwt(x_input_sample[0])
+                _mask = x_input_sample[1][:,:,::2**self.dwt_level,::2**self.dwt_level]
+                x_input_sample = [xcl, _mask]
 
-            all_images_list = show_x_input_sample + \
-                list(self.ema.ema_model.sample(
+
+            # todo
+            results_sample = list(self.ema.ema_model.sample(
                     x_input_sample, batch_size=batches, last=last))
-
+            # print(len(results_sample)) # len=2, for input_add_noise and results
+            _, imgs = results_sample
+            imgs_inv = self.idwt((imgs, xrh))
+            # print('=='*20+f'imgs shape: {imgs_inv.shape}')
+            all_images_list = show_x_input_sample + [imgs_inv] # todo
             all_images = torch.cat(all_images_list, dim=0)
-
             if last:
                 nrow = int(math.sqrt(self.num_samples))
             else:

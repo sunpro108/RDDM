@@ -10,7 +10,7 @@ from src.residual_denoising_diffusion_pytorch import (ResidualDiffusion,
 os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(e) for e in [0,1,2,3])
 sys.stdout.flush()
 set_seed(10)
-debug = True
+debug = False
 
 if debug:
     save_and_sample_every = 2
@@ -123,6 +123,8 @@ trainer = Trainer(
     crop_patch=False,
     generation=True,
     num_unet=num_unet,
+    dwt_level=2,
+    debug=debug
 )
 
 # train

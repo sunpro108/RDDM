@@ -11,7 +11,7 @@ import torchvision.transforms.functional as tf
 class IHarmony4Dataset(data.Dataset):
     """A template dataset class for you to implement custom datasets."""
 
-    def __init__(self, dataset_dir, is_for_train, image_size=256):
+    def __init__(self, dataset_dir, is_for_train, image_size=256, debug=False):
         """Initialize this dataset class.
         Parameters:
         A few things can be done here.
@@ -24,10 +24,11 @@ class IHarmony4Dataset(data.Dataset):
         self.dataset_dir = Path(dataset_dir)  
         self.image_paths, self.mask_paths, self.gt_paths = [], [], []
         self.is_train = is_for_train
+        self.debug = debug
         self.train_file = None
         self._load_images_paths()
         self.transform = transforms.Compose([
-            transforms.Resize((image_size, image_size)),
+            transforms.Resize((image_size*4, image_size*4)),
             transforms.ToTensor() 
         ]) 
 
@@ -36,8 +37,15 @@ class IHarmony4Dataset(data.Dataset):
     ):
         file_name = "IHD_train.txt" if self.is_train else "IHD_test.txt"
         self.trainfile = str(self.dataset_dir / file_name)
+        i = 0 
         with open(self.trainfile, "r") as f:
             for line in f.readlines():
+                #region debug & use little data
+                if self.debug:
+                    if i % 500 !=0:
+                        i += 1
+                        continue
+                #endregion
                 line = line.rstrip()
                 # line = line.replace("jpg", "png")
                 name_parts = line.split("_")

@@ -28,6 +28,7 @@ def dataset(folder,
             generation=False,
             harmonization=False,
             is_for_train=None,
+            debug=False,
         ):
     if not harmonization:
         if generation:
@@ -105,6 +106,5 @@ def dataset(folder,
         args = dict2namespace(args)
         config = dict2namespace(config)
         return get_dataset(args, config)[0]
-
     elif dataset_import == "harmonization":
-        return IHarmony4Dataset(folder, is_for_train=is_for_train,image_size=image_size)
+        return IHarmony4Dataset(folder, is_for_train=is_for_train,image_size=image_size,debug=debug)

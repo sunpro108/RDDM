@@ -10,7 +10,7 @@ from src.residual_denoising_diffusion_pytorch import (ResidualDiffusion,
 
 sys.stdout.flush()
 set_seed(10)
-debug = True
+debug = False
 
 if debug:
     save_and_sample_every = 1
@@ -24,7 +24,7 @@ else:
     else:
         sampling_timesteps = 10
     sampling_timesteps_original_ddim_ddpm = 250
-    train_num_steps = 100,000
+    train_num_steps = 100000
 
 original_ddim_ddpm = False
 if original_ddim_ddpm:
@@ -107,7 +107,7 @@ trainer = Trainer(
     folder,
     train_batch_size=train_batch_size,
     num_samples=num_samples,
-    results_folder='./results_debug_on_istd_2/sample',
+    results_folder='./results/sample',
     train_lr=2e-4,
     train_num_steps=train_num_steps,         # total training steps
     gradient_accumulate_every=2,     # gradient accumulation steps
@@ -122,9 +122,9 @@ trainer = Trainer(
     num_unet=num_unet,
 )
 
-# trainer.set_results_folder('results/sample')
-# trainer.load(10)
-
+trainer.set_results_folder('results/sample')
+trainer.load(20)
+# 
 # train
 trainer.train()
 
